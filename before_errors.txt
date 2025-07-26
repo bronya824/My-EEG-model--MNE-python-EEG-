@@ -1,0 +1,40 @@
+#which is the error in the rest_api.py someday ago
+@pytest.fixture
+def client(tmp_path):
+    # 创建或获取测试专用日志器
+    logger = logging.getLogger('test_api')
+    logger.setLevel(logging.DEBUG)
+
+    # 确保日志器有且只有一个控制台处理器
+    if not logger.handlers:
+        ch = logging.StreamHandler()
+        ch.setLevel(logging.DEBUG)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        ch.setFormatter(formatter)
+        logger.addHandler(ch)
+    else:
+        # 避免重复添加处理器
+        logger.handlers = [h for h in logger.handlers if not isinstance(h, logging.StreamHandler)]
+        ch = logging.StreamHandler()
+        ch.setLevel(logging.DEBUG)
+        logger.addHandler(ch)
+
+    # 配置应用上传目录
+    upload_dir = tmp_path / "uploads"
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    app.config.update({
+        "TESTING": True,
+        "UPLOAD_FOLDER": str(upload_dir),
+        "MAX_CONTENT_LENGTH": 100 * 1024 * 1024  # 100MB
+    })
+
+    # 注意：不再禁用全局日志，也不再移除根日志处理器
+    with app.test_client() as client:
+        # 可在此处添加测试启动日志
+        logger.info("Test client initialized")
+        yield client
+
+    # 测试结束后清理上传目录
+    if upload_dir.exists():
+        shutil.rmtree(upload_dir)
+    logger.info("Test completed, upload directory removed")

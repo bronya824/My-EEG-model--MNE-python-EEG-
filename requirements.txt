@@ -1,0 +1,13 @@
+flask>=2.0.0
+mne>=1.0.0
+numpy>=1.21.0
+scipy>=1.7.0
+pydantic>=2.0
+alibabacloud_oss20190517
+pyedflib
+websockets
+tqdm
+pytest
+python-dotenv
+werkzeug>=2.0.0
+psutil

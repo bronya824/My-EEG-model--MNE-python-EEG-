@@ -1,0 +1,14 @@
+# config/prod.yaml
+server:
+  host: "0.0.0.0"
+  port: 80
+  debug: false
+
+database:
+  uri: "postgresql://user:pass@prod_db:5432/eeg"
+
+aliyun:
+  access_key: "prod_access_key"
+  secret_key: "prod_secret_key"
+  region: "cn-shanghai"
+  bucket: "eeg-prod"

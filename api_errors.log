@@ -1,0 +1,29 @@
+2025-04-24 11:21:33,892 ERROR: 处理失败: EEG数据转换失败: DigMontage is only a subset of info. There are 5 channel positions not present in the DigMontage. The channels missing from the montage are:
+
+['FP1', 'FP2', 'FZ', 'CZ', 'PZ'].
+
+Consider using inst.rename_channels to match the montage nomenclature, or inst.set_channel_types if these are not EEG channels, or use the on_missing parameter if the channel positions are allowed to be unknown in your analyses. [in D:\Python_study\EEG_Processor\eeg_proc\api\rest_api.py:125]
+2025-04-24 11:21:34,620 ERROR: 未处理异常 [in D:\Python_study\EEG_Processor\eeg_proc\api\rest_api.py:84]
+Traceback (most recent call last):
+  File "D:\Python_study\EEG_Processor\eeg_proc\api\rest_api.py", line 163, in handle_edf_upload
+    raw.rename_channels(_standardize_ch_names(raw.ch_names))
+  File "<decorator-gen-23>", line 12, in rename_channels
+  File "D:\Python_study\EEG_Processor\.venv\Lib\site-packages\mne\_fiff\meas_info.py", line 651, in rename_channels
+    rename_channels(info, mapping, allow_duplicates)
+  File "<decorator-gen-127>", line 12, in rename_channels
+  File "D:\Python_study\EEG_Processor\.venv\Lib\site-packages\mne\channels\channels.py", line 970, in rename_channels
+    raise ValueError("mapping must be callable or dict, not %s" % (type(mapping),))
+ValueError: mapping must be callable or dict, not <class 'list'>
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\Python_study\EEG_Processor\.venv\Lib\site-packages\flask\app.py", line 870, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Python_study\EEG_Processor\.venv\Lib\site-packages\flask\app.py", line 855, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Python_study\EEG_Processor\eeg_proc\api\rest_api.py", line 172, in handle_edf_upload
+    except (EdfError, ValueError, TypeError) as e:
+TypeError: catching classes that do not inherit from BaseException is not allowed

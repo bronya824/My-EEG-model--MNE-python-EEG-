@@ -1,0 +1,14 @@
+# config/dev.yaml
+server:
+  host: "0.0.0.0"
+  port: 5000
+  debug: true
+
+database:
+  uri: "sqlite:///./data/dev.db"
+
+aliyun:
+  access_key: "dev_access_key"
+  secret_key: "dev_secret_key"
+  region: "cn-shanghai"
+  bucket: "eeg-dev"

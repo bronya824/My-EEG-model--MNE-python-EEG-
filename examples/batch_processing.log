@@ -1,0 +1,50 @@
+[2025-07-05 13:47:20,421] INFO     [EEG_Batch_Processor] - 未安装colorlog，使用标准日志格式
+[2025-07-05 13:47:20,424] INFO     [EEG_Batch_Processor] - 
+============================================================
+[2025-07-05 13:47:20,424] INFO     [EEG_Batch_Processor] - EEG批处理分析程序 v1.3
+[2025-07-05 13:47:20,424] INFO     [EEG_Batch_Processor] - 工作目录: D:\Python_study\EEG_Processor\examples
+[2025-07-05 13:47:20,424] INFO     [EEG_Batch_Processor] - Python版本: 3.12.5 (tags/v3.12.5:ff3bc82, Aug  6 2024, 20:45:27) [MSC v.1940 64 bit (AMD64)]
+[2025-07-05 13:47:20,424] INFO     [EEG_Batch_Processor] - MNE版本: 1.6.0
+[2025-07-05 13:47:20,424] INFO     [EEG_Batch_Processor] - ============================================================
+[2025-07-05 13:47:20,424] INFO     [EEG_Batch_Processor] - 原始数据目录: D:\Python_study\EEG_Processor\examples\data\raw
+[2025-07-05 13:47:20,426] INFO     [EEG_Batch_Processor] - 目录内容 (1 个文件):
+[2025-07-05 13:47:20,426] INFO     [EEG_Batch_Processor] -   - S001R01.edf
+[2025-07-05 13:47:20,426] INFO     [EEG_Batch_Processor] - 找到 1 个EEG文件
+[2025-07-05 13:47:20,426] INFO     [EEG_Batch_Processor] - 启动批处理分析
+[2025-07-05 13:47:20,426] INFO     [EEG_Batch_Processor] - 
+============================================================
+[2025-07-05 13:47:20,426] INFO     [EEG_Batch_Processor] - EEG批处理分析启动
+[2025-07-05 13:47:20,426] INFO     [EEG_Batch_Processor] - ============================================================
+[2025-07-05 13:47:20,426] INFO     [EEG_Batch_Processor] - 输入目录: D:\Python_study\EEG_Processor\examples\data\raw
+[2025-07-05 13:47:20,427] INFO     [EEG_Batch_Processor] - 找到 0 个FIF文件, 1 个EDF文件
+[2025-07-05 13:47:20,427] INFO     [EEG_Batch_Processor] - 待处理文件列表:
+[2025-07-05 13:47:20,427] INFO     [EEG_Batch_Processor] -   1. S001R01.edf
+[2025-07-05 13:47:20,427] INFO     [EEG_Batch_Processor] - 输出目录: D:\Python_study\EEG_Processor\examples\data\processed
+[2025-07-05 13:47:20,429] INFO     [EEG_Batch_Processor] - 
+--------------------------------------------------
+[2025-07-05 13:47:20,429] INFO     [EEG_Batch_Processor] - 处理文件 (1/1): S001R01.edf
+[2025-07-05 13:47:20,429] INFO     [EEG_Batch_Processor] - --------------------------------------------------
+[2025-07-05 13:47:20,429] INFO     [EEG_Batch_Processor] - 步骤1/4: 加载文件
+[2025-07-05 13:47:20,429] INFO     [EEG_Batch_Processor] - 加载文件: S001R01.edf (1246.0 KB)
+[2025-07-05 13:47:20,430] INFO     [EEG_Batch_Processor] - 尝试方法1: 标准EDF加载
+[2025-07-05 13:47:20,447] INFO     [EEG_Batch_Processor] - 方法1成功: 加载64通道EDF数据
+[2025-07-05 13:47:20,447] INFO     [EEG_Batch_Processor] - 采样率: 160.0Hz, 通道数: 64, 时长: 61.0s
+[2025-07-05 13:47:20,447] INFO     [EEG_Batch_Processor] - 步骤2/4: 预处理流水线
+[2025-07-05 13:47:20,458] INFO     [eeg_pipeline] - 初始化MNEPipeline: 64通道, 9760采样点
+[2025-07-05 13:47:20,458] INFO     [eeg_pipeline] - 开始标准预处理流程
+[2025-07-05 13:47:20,460] INFO     [eeg_pipeline] - 原始数据状态: 9760采样点, 64通道
+[2025-07-05 13:47:20,460] INFO     [eeg_pipeline] - 预处理完成: 通道 64→64, 采样点 9760→9760, 采样率 160.0Hz
+[2025-07-05 13:47:20,460] INFO     [EEG_Batch_Processor] - 预处理完成: 剩余通道 64个, 时长 61.0s
+[2025-07-05 13:47:20,460] INFO     [EEG_Batch_Processor] - 步骤3/4: 保存结果
+[2025-07-05 13:47:20,490] INFO     [EEG_Batch_Processor] - 步骤4/4: 上传到阿里云
+[2025-07-05 13:47:20,500] INFO     [eeg_proc.models.eeg_model] - 数据上传成功到存储桶: eeg-data
+[2025-07-05 13:47:20,501] INFO     [EEG_Batch_Processor] - 文件处理完成: S001R01.edf
+[2025-07-05 13:47:20,501] INFO     [EEG_Batch_Processor] - 
+============================================================
+[2025-07-05 13:47:20,501] INFO     [EEG_Batch_Processor] - 批处理完成: 成功 1/1 文件
+[2025-07-05 13:47:20,501] INFO     [EEG_Batch_Processor] - ============================================================
+[2025-07-05 13:47:20,502] INFO     [EEG_Batch_Processor] - 
+============================================================
+[2025-07-05 13:47:20,502] INFO     [EEG_Batch_Processor] - 处理完成: 成功 1 个文件
+[2025-07-05 13:47:20,503] INFO     [EEG_Batch_Processor] - 退出代码: 0
+[2025-07-05 13:47:20,503] INFO     [EEG_Batch_Processor] - ============================================================

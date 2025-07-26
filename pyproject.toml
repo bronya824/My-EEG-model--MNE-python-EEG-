@@ -1,0 +1,75 @@
+[build-system]
+requires = ["setuptools>=67.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "eeg_proc"
+version = "1.0.0"
+description = "Advanced EEG Processing Pipeline for Depression Research with MNE"
+authors = [
+    {name = "NeuroLab Research Team", email = "neuralab@research.org"},
+    {name = "Clinical Neuroscience Group", email = "cns@medical.edu"}
+]
+readme = "docs/developer_guide.md"
+requires-python = ">=3.10"
+license = {text = "BSD-3-Clause"}
+keywords = ["eeg", "mne", "depression", "neuroscience", "bci"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Scientific/Engineering :: Medical Science Apps"
+]
+
+dependencies = [
+    "mne>=1.6.0",
+    "Flask>=3.0.2",
+    "pydantic>=2.0",
+    "numpy>=1.24",
+    "scipy>=1.10",        # 频域分析必需
+    "pyedflib>=0.1.32",   # EDF文件支持
+    "alibabacloud_oss_sdk>=2.1.0",  # 阿里云集成
+    "websockets>=11.0",   # 实时处理
+    "colorlog>=6.7.0",    # 日志增强
+    "tqdm>=4.66.0"        # 进度条
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "flask-testing>=0.8.1"
+]
+depression = [
+    "scikit-learn>=1.3.0",  # 抑郁症分类模型
+    "mne-connectivity>=0.5" # 功能连接分析
+]
+
+[project.entry-points."console_scripts"]
+eeg-batch = "batch_analysis:main"
+eeg-api = "rest_api:start_server"
+
+[project.urls]
+Homepage = "https://github.com/neuro-lab/eeg_proc"
+Documentation = "https://neuro-lab.github.io/eeg_proc"
+Source = "https://github.com/neuro-lab/eeg_proc"
+
+[tool.pytest.ini_options]
+testpaths = "tests"
+addopts = "-v --cov=eeg_proc --cov-report=html"
+python_files = "test_*.py"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::mne.utils.DocstringParserWarning"
+]
+
+[tool.setuptools.package-data]
+eeg_proc = [
+    "config/*.yaml",
+    "montages/*.txt"
+]
+
+[tool.setuptools]
+include-package-data = true
+zip-safe = false

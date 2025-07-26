@@ -1,0 +1,7 @@
+# MANIFEST.in
+include requirements.txt
+include pytest.ini
+include config/*.yaml
+recursive-include docs *.md
+include Dockerfile
+include setup.py

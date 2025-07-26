@@ -1,0 +1,8 @@
+2025-04-23 19:56:02,905 ERROR: HTTP 422: 1 validation error for WechatEEGInput
+device_id
+  String should match pattern '^eeg-\d+$' [type=string_pattern_mismatch, input_value='eeg-test', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.6/v/string_pattern_mismatch [in D:\Python_study\EEG_Processor\eeg_proc\api\rest_api.py:83]
+2025-04-23 19:56:03,503 ERROR: ???????????No mne.preprocessing attribute compute_bad_channels [in D:\Python_study\EEG_Processor\eeg_proc\api\rest_api.py:152]
+2025-04-23 19:56:03,505 ERROR: HTTP 500: ????????? [in D:\Python_study\EEG_Processor\eeg_proc\api\rest_api.py:83]
+2025-04-23 19:56:03,512 ERROR: HTTP 400: ?????????? [in D:\Python_study\EEG_Processor\eeg_proc\api\rest_api.py:83]
+2025-04-23 19:56:03,518 ERROR: HTTP 415: ?????JSON??? [in D:\Python_study\EEG_Processor\eeg_proc\api\rest_api.py:83]
