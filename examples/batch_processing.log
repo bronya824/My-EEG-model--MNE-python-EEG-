@@ -1,50 +1,72 @@
-[2025-07-05 13:47:20,421] INFO     [EEG_Batch_Processor] - 未安装colorlog，使用标准日志格式
-[2025-07-05 13:47:20,424] INFO     [EEG_Batch_Processor] - 
+[2026-01-03 17:30:05,504] INFO     [EEG_Batch_Processor] - 未安装colorlog，使用标准日志格式
+[2026-01-03 17:30:05,507] INFO     [EEG_Batch_Processor] - 
 ============================================================
-[2025-07-05 13:47:20,424] INFO     [EEG_Batch_Processor] - EEG批处理分析程序 v1.3
-[2025-07-05 13:47:20,424] INFO     [EEG_Batch_Processor] - 工作目录: D:\Python_study\EEG_Processor\examples
-[2025-07-05 13:47:20,424] INFO     [EEG_Batch_Processor] - Python版本: 3.12.5 (tags/v3.12.5:ff3bc82, Aug  6 2024, 20:45:27) [MSC v.1940 64 bit (AMD64)]
-[2025-07-05 13:47:20,424] INFO     [EEG_Batch_Processor] - MNE版本: 1.6.0
-[2025-07-05 13:47:20,424] INFO     [EEG_Batch_Processor] - ============================================================
-[2025-07-05 13:47:20,424] INFO     [EEG_Batch_Processor] - 原始数据目录: D:\Python_study\EEG_Processor\examples\data\raw
-[2025-07-05 13:47:20,426] INFO     [EEG_Batch_Processor] - 目录内容 (1 个文件):
-[2025-07-05 13:47:20,426] INFO     [EEG_Batch_Processor] -   - S001R01.edf
-[2025-07-05 13:47:20,426] INFO     [EEG_Batch_Processor] - 找到 1 个EEG文件
-[2025-07-05 13:47:20,426] INFO     [EEG_Batch_Processor] - 启动批处理分析
-[2025-07-05 13:47:20,426] INFO     [EEG_Batch_Processor] - 
+[2026-01-03 17:30:05,507] INFO     [EEG_Batch_Processor] - EEG批处理分析程序 v1.3
+[2026-01-03 17:30:05,507] INFO     [EEG_Batch_Processor] - 工作目录: D:\Python_study\EEG_Processor\examples
+[2026-01-03 17:30:05,507] INFO     [EEG_Batch_Processor] - Python版本: 3.12.5 (tags/v3.12.5:ff3bc82, Aug  6 2024, 20:45:27) [MSC v.1940 64 bit (AMD64)]
+[2026-01-03 17:30:05,507] INFO     [EEG_Batch_Processor] - MNE版本: 1.6.0
+[2026-01-03 17:30:05,507] INFO     [EEG_Batch_Processor] - ============================================================
+[2026-01-03 17:30:05,507] INFO     [EEG_Batch_Processor] - 原始数据目录: D:\Python_study\EEG_Processor\examples\data\raw
+[2026-01-03 17:30:05,508] INFO     [EEG_Batch_Processor] - 目录内容 (2 个文件):
+[2026-01-03 17:30:05,508] INFO     [EEG_Batch_Processor] -   - S001R01.edf
+[2026-01-03 17:30:05,508] INFO     [EEG_Batch_Processor] -   - subject008_click_eeg.fif
+[2026-01-03 17:30:05,508] INFO     [EEG_Batch_Processor] - 找到 2 个EEG文件
+[2026-01-03 17:30:05,509] INFO     [EEG_Batch_Processor] - 启动批处理分析
+[2026-01-03 17:30:05,509] INFO     [EEG_Batch_Processor] - 
 ============================================================
-[2025-07-05 13:47:20,426] INFO     [EEG_Batch_Processor] - EEG批处理分析启动
-[2025-07-05 13:47:20,426] INFO     [EEG_Batch_Processor] - ============================================================
-[2025-07-05 13:47:20,426] INFO     [EEG_Batch_Processor] - 输入目录: D:\Python_study\EEG_Processor\examples\data\raw
-[2025-07-05 13:47:20,427] INFO     [EEG_Batch_Processor] - 找到 0 个FIF文件, 1 个EDF文件
-[2025-07-05 13:47:20,427] INFO     [EEG_Batch_Processor] - 待处理文件列表:
-[2025-07-05 13:47:20,427] INFO     [EEG_Batch_Processor] -   1. S001R01.edf
-[2025-07-05 13:47:20,427] INFO     [EEG_Batch_Processor] - 输出目录: D:\Python_study\EEG_Processor\examples\data\processed
-[2025-07-05 13:47:20,429] INFO     [EEG_Batch_Processor] - 
+[2026-01-03 17:30:05,509] INFO     [EEG_Batch_Processor] - EEG批处理分析启动
+[2026-01-03 17:30:05,509] INFO     [EEG_Batch_Processor] - ============================================================
+[2026-01-03 17:30:05,509] INFO     [EEG_Batch_Processor] - 输入目录: D:\Python_study\EEG_Processor\examples\data\raw
+[2026-01-03 17:30:05,509] INFO     [EEG_Batch_Processor] - 找到 1 个FIF文件, 1 个EDF文件
+[2026-01-03 17:30:05,509] INFO     [EEG_Batch_Processor] - 待处理文件列表:
+[2026-01-03 17:30:05,509] INFO     [EEG_Batch_Processor] -   1. subject008_click_eeg.fif
+[2026-01-03 17:30:05,510] INFO     [EEG_Batch_Processor] -   2. S001R01.edf
+[2026-01-03 17:30:05,510] INFO     [EEG_Batch_Processor] - 输出目录: D:\Python_study\EEG_Processor\examples\data\processed
+[2026-01-03 17:30:05,512] INFO     [EEG_Batch_Processor] - 
 --------------------------------------------------
-[2025-07-05 13:47:20,429] INFO     [EEG_Batch_Processor] - 处理文件 (1/1): S001R01.edf
-[2025-07-05 13:47:20,429] INFO     [EEG_Batch_Processor] - --------------------------------------------------
-[2025-07-05 13:47:20,429] INFO     [EEG_Batch_Processor] - 步骤1/4: 加载文件
-[2025-07-05 13:47:20,429] INFO     [EEG_Batch_Processor] - 加载文件: S001R01.edf (1246.0 KB)
-[2025-07-05 13:47:20,430] INFO     [EEG_Batch_Processor] - 尝试方法1: 标准EDF加载
-[2025-07-05 13:47:20,447] INFO     [EEG_Batch_Processor] - 方法1成功: 加载64通道EDF数据
-[2025-07-05 13:47:20,447] INFO     [EEG_Batch_Processor] - 采样率: 160.0Hz, 通道数: 64, 时长: 61.0s
-[2025-07-05 13:47:20,447] INFO     [EEG_Batch_Processor] - 步骤2/4: 预处理流水线
-[2025-07-05 13:47:20,458] INFO     [eeg_pipeline] - 初始化MNEPipeline: 64通道, 9760采样点
-[2025-07-05 13:47:20,458] INFO     [eeg_pipeline] - 开始标准预处理流程
-[2025-07-05 13:47:20,460] INFO     [eeg_pipeline] - 原始数据状态: 9760采样点, 64通道
-[2025-07-05 13:47:20,460] INFO     [eeg_pipeline] - 预处理完成: 通道 64→64, 采样点 9760→9760, 采样率 160.0Hz
-[2025-07-05 13:47:20,460] INFO     [EEG_Batch_Processor] - 预处理完成: 剩余通道 64个, 时长 61.0s
-[2025-07-05 13:47:20,460] INFO     [EEG_Batch_Processor] - 步骤3/4: 保存结果
-[2025-07-05 13:47:20,490] INFO     [EEG_Batch_Processor] - 步骤4/4: 上传到阿里云
-[2025-07-05 13:47:20,500] INFO     [eeg_proc.models.eeg_model] - 数据上传成功到存储桶: eeg-data
-[2025-07-05 13:47:20,501] INFO     [EEG_Batch_Processor] - 文件处理完成: S001R01.edf
-[2025-07-05 13:47:20,501] INFO     [EEG_Batch_Processor] - 
+[2026-01-03 17:30:05,512] INFO     [EEG_Batch_Processor] - 处理文件 (1/2): subject008_click_eeg.fif
+[2026-01-03 17:30:05,512] INFO     [EEG_Batch_Processor] - --------------------------------------------------
+[2026-01-03 17:30:05,512] INFO     [EEG_Batch_Processor] - 步骤1/4: 加载文件
+[2026-01-03 17:30:05,512] INFO     [EEG_Batch_Processor] - 加载文件: subject008_click_eeg.fif (50385.9 KB)
+[2026-01-03 17:30:05,823] INFO     [EEG_Batch_Processor] - 成功加载FIF文件: 2通道, 6430001采样点
+[2026-01-03 17:30:05,850] INFO     [EEG_Batch_Processor] - 采样率: 10000.0Hz, 通道数: 2, 时长: 643.0s
+[2026-01-03 17:30:05,850] INFO     [EEG_Batch_Processor] - 步骤2/4: 预处理流水线
+[2026-01-03 17:30:06,028] INFO     [eeg_pipeline] - 初始化MNEPipeline: 2通道, 6430001采样点
+[2026-01-03 17:30:06,028] INFO     [eeg_pipeline] - 开始标准预处理流程
+[2026-01-03 17:30:06,072] INFO     [eeg_pipeline] - 原始数据状态: 6430001采样点, 2通道
+[2026-01-03 17:30:06,072] INFO     [eeg_pipeline] - 预处理完成: 通道 2→2, 采样点 6430001→6430001, 采样率 10000.0Hz
+[2026-01-03 17:30:06,090] INFO     [EEG_Batch_Processor] - 预处理完成: 剩余通道 2个, 时长 643.0s
+[2026-01-03 17:30:06,090] INFO     [EEG_Batch_Processor] - 步骤3/4: 保存结果
+[2026-01-03 17:30:06,091] WARNING  [EEG_Batch_Processor] - 测量日期格式异常，重置为None: 'datetime.datetime' object is not subscriptable
+[2026-01-03 17:30:06,296] INFO     [EEG_Batch_Processor] - 步骤4/4: 上传到阿里云
+[2026-01-03 17:30:06,510] INFO     [eeg_proc.models.eeg_model] - 数据上传成功到存储桶: eeg-data
+[2026-01-03 17:30:06,515] INFO     [EEG_Batch_Processor] - 文件处理完成: subject008_click_eeg.fif
+[2026-01-03 17:30:06,515] INFO     [EEG_Batch_Processor] - 
+--------------------------------------------------
+[2026-01-03 17:30:06,515] INFO     [EEG_Batch_Processor] - 处理文件 (2/2): S001R01.edf
+[2026-01-03 17:30:06,515] INFO     [EEG_Batch_Processor] - --------------------------------------------------
+[2026-01-03 17:30:06,516] INFO     [EEG_Batch_Processor] - 步骤1/4: 加载文件
+[2026-01-03 17:30:06,516] INFO     [EEG_Batch_Processor] - 加载文件: S001R01.edf (1246.0 KB)
+[2026-01-03 17:30:06,516] INFO     [EEG_Batch_Processor] - 尝试方法1: 标准EDF加载
+[2026-01-03 17:30:06,531] INFO     [EEG_Batch_Processor] - 方法1成功: 加载64通道EDF数据
+[2026-01-03 17:30:06,539] INFO     [EEG_Batch_Processor] - 采样率: 160.0Hz, 通道数: 64, 时长: 61.0s
+[2026-01-03 17:30:06,539] INFO     [EEG_Batch_Processor] - 步骤2/4: 预处理流水线
+[2026-01-03 17:30:06,545] INFO     [eeg_pipeline] - 初始化MNEPipeline: 64通道, 9760采样点
+[2026-01-03 17:30:06,545] INFO     [eeg_pipeline] - 开始标准预处理流程
+[2026-01-03 17:30:06,547] INFO     [eeg_pipeline] - 原始数据状态: 9760采样点, 64通道
+[2026-01-03 17:30:06,547] INFO     [eeg_pipeline] - 预处理完成: 通道 64→64, 采样点 9760→9760, 采样率 160.0Hz
+[2026-01-03 17:30:06,554] INFO     [EEG_Batch_Processor] - 预处理完成: 剩余通道 64个, 时长 61.0s
+[2026-01-03 17:30:06,554] INFO     [EEG_Batch_Processor] - 步骤3/4: 保存结果
+[2026-01-03 17:30:06,555] WARNING  [EEG_Batch_Processor] - 测量日期格式异常，重置为None: 'datetime.datetime' object is not subscriptable
+[2026-01-03 17:30:06,570] INFO     [EEG_Batch_Processor] - 步骤4/4: 上传到阿里云
+[2026-01-03 17:30:06,583] INFO     [eeg_proc.models.eeg_model] - 数据上传成功到存储桶: eeg-data
+[2026-01-03 17:30:06,584] INFO     [EEG_Batch_Processor] - 文件处理完成: S001R01.edf
+[2026-01-03 17:30:06,584] INFO     [EEG_Batch_Processor] - 
 ============================================================
-[2025-07-05 13:47:20,501] INFO     [EEG_Batch_Processor] - 批处理完成: 成功 1/1 文件
-[2025-07-05 13:47:20,501] INFO     [EEG_Batch_Processor] - ============================================================
-[2025-07-05 13:47:20,502] INFO     [EEG_Batch_Processor] - 
+[2026-01-03 17:30:06,584] INFO     [EEG_Batch_Processor] - 批处理完成: 成功 2/2 文件
+[2026-01-03 17:30:06,584] INFO     [EEG_Batch_Processor] - ============================================================
+[2026-01-03 17:30:06,585] INFO     [EEG_Batch_Processor] - 
 ============================================================
-[2025-07-05 13:47:20,502] INFO     [EEG_Batch_Processor] - 处理完成: 成功 1 个文件
-[2025-07-05 13:47:20,503] INFO     [EEG_Batch_Processor] - 退出代码: 0
-[2025-07-05 13:47:20,503] INFO     [EEG_Batch_Processor] - ============================================================
+[2026-01-03 17:30:06,585] INFO     [EEG_Batch_Processor] - 处理完成: 成功 2 个文件
+[2026-01-03 17:30:06,585] INFO     [EEG_Batch_Processor] - 退出代码: 0
+[2026-01-03 17:30:06,585] INFO     [EEG_Batch_Processor] - ============================================================

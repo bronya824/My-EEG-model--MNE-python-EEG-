@@ -8,7 +8,6 @@ import sys
 from eeg_proc.processing.preprocessor import MNEPipeline
 from eeg_proc.models.eeg_model import AliyunOutputModel
 import pyedflib
-import os
 
 # 关键修复1: 最先配置MNE日志级别
 mne.set_log_level("INFO")  # 必须先设置MNE的日志级别
@@ -228,6 +227,18 @@ def run_batch_analysis(input_dir: str = "./data/raw"):
                 logger.info(f"步骤3/4: 保存结果")
                 output_path = output_dir / f"proc-{file.stem}_eeg.fif"
                 output_path.parent.mkdir(parents=True, exist_ok=True)
+
+                if raw_clean.info.get('meas_date') is not None:
+                    try:
+                        # 检查测量日期是否超出MNE允许范围
+                        meas_sec = raw_clean.info['meas_date'][0]  # 获取秒数部分
+                        if meas_sec < -2147483648 or meas_sec > 2147483647:
+                            logger.warning(f"测量日期 {meas_sec} 超出范围，重置为None")
+                            raw_clean.set_meas_date(None)  # 清除有问题的测量日期
+                    except (IndexError, TypeError) as e:
+                        logger.warning(f"测量日期格式异常，重置为None: {e}")
+                        raw_clean.set_meas_date(None)
+
                 raw_clean.save(output_path, overwrite=True)
                 logger.info(f"✅ 保存成功: {output_path.name} ({output_path.stat().st_size / 1024:.1f} KB)")
 
