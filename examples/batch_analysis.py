@@ -27,6 +27,11 @@ logger = logging.getLogger('EEG_Batch_Processor')
 # 关键修复2: 配置根日志器而不仅仅是当前日志器
 root_logger = logging.getLogger()
 
+# 修复 Windows GBK 控制台 Unicode 编码问题
+import io
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
 # 调整第三方库日志级别 - 允许INFO级别
 for lib in ['alibabacloud_credentials', 'mne', 'urllib3', 'pyedflib']:
     logging.getLogger(lib).setLevel(logging.INFO)

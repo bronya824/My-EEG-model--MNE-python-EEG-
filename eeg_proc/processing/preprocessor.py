@@ -74,28 +74,28 @@ class MNEPipeline:
         if 'fir_design' not in params:
             params['fir_design'] = 'firwin2'
 
-            # 动态调整滤波器长度（核心修复）
-            n_samples = self.raw.n_times
-            # 计算最小滤波器长度（至少3倍周期）
-            min_length = 0
-            if l_freq and l_freq > 0:
-                min_length = int(3 * self.raw.info['sfreq'] / l_freq)
-            min_length = max(101, min_length)  # 确保最小长度
-
-            # 计算最大滤波器长度（不超过数据长度的1/3）
-            max_length = min(10000, n_samples // 2)
-            max_length = min(max_length, int(n_samples * 0.1))  # 新增：限制最大长度 ≤10% 数据时长
-
-            # 如果用户没有指定滤波器长度，则使用动态计算的值
-            if 'filter_length' not in params:
-                params['filter_length'] = min_length  # 使用最小长度保证滤波效果
-
-            # 确保滤波器长度在合理范围内且为奇数
-            if isinstance(params['filter_length'], (int, float)):
-                filter_length = int(params['filter_length'])
-                filter_length = max(min_length, min(filter_length, max_length))
-                filter_length = filter_length // 2 * 2 + 1  # 确保是奇数
-                params['filter_length'] = filter_length
+            ## 动态调整滤波器长度（核心修复）
+            #n_samples = self.raw.n_times
+            ## 计算最小滤波器长度（至少3倍周期）
+            #min_length = 0
+            #if l_freq and l_freq > 0:
+            #    min_length = int(3 * self.raw.info['sfreq'] / l_freq)
+            #min_length = max(101, min_length)  # 确保最小长度
+#
+            ## 计算最大滤波器长度（不超过数据长度的1/3）
+            #max_length = min(10000, n_samples // 2)
+            #max_length = min(max_length, int(n_samples * 0.1))  # 新增：限制最大长度 ≤10% 数据时长
+#
+            ## 如果用户没有指定滤波器长度，则使用动态计算的值
+            #if 'filter_length' not in params:
+            #    params['filter_length'] = min_length  # 使用最小长度保证滤波效果
+#
+            ## 确保滤波器长度在合理范围内且为奇数
+            #if isinstance(params['filter_length'], (int, float)):
+            #    filter_length = int(params['filter_length'])
+            #    filter_length = max(min_length, min(filter_length, max_length))
+            #    filter_length = filter_length // 2 * 2 + 1  # 确保是奇数
+            #    params['filter_length'] = filter_length
 
             n_samples = self.raw.n_times
 
@@ -230,12 +230,20 @@ class MNEPipeline:
 
     def run_ica(self, n_components: Optional[float] = None,
                 method: Optional[str] = None, **kwargs) -> 'MNEPipeline':
-        """增强版ICA分解（添加空成分检查）"""
+        """增强版ICA分解（添加空成分检查和低通道数保护）"""
         params = {**self.DEFAULT_PARAMS['ica'], **kwargs}
         params.update({
             'n_components': n_components or params['n_components'],
             'method': method or params['method']
         })
+
+        # 检查最小通道数：ICA 对 < 3 通道无意义
+        n_channels = len(self.raw.ch_names)
+        if n_channels < 3:
+            logger.warning(f"通道数不足({n_channels} < 3)，ICA无意义，跳过")
+            self._log_step('ica', {'status': f'skipped (too few channels: {n_channels})'})
+            self.ica = None
+            return self
 
         min_samples = int(2 * self.raw.info['sfreq'])  # 至少2秒数据
         if self.raw.n_times < min_samples:
@@ -250,11 +258,35 @@ class MNEPipeline:
             max_iter=params.get('max_iter', 500)
         )
 
-        self.ica.fit(
-            self.raw,
-            reject_by_annotation=True,
-            verbose='warning'  # 显示重要警告
-        )
+        try:
+            self.ica.fit(
+                self.raw,
+                reject_by_annotation=True,
+                verbose='warning'
+            )
+        except ImportError as e:
+            # fastica 需要 sklearn，缺失时自动降级为 infomax
+            logger.warning(f"ICA方法 '{params['method']}' 不可用: {str(e)}，降级为 'infomax'")
+            params['method'] = 'infomax'
+            self.ica = ICA(
+                n_components=params['n_components'],
+                method='infomax',
+                random_state=params['random_state'],
+                max_iter=params.get('max_iter', 500)
+            )
+            self.ica.fit(
+                self.raw,
+                reject_by_annotation=True,
+                verbose='warning'
+            )
+        except RuntimeError as e:
+            # PCA 方差阈值问题（常见于少通道数据），跳过 ICA
+            if 'PCA' in str(e) or 'threshold' in str(e):
+                logger.warning(f"ICA不适合当前数据(PCA问题): {str(e)}，跳过ICA处理")
+                self.ica = None
+                self._log_step('ica', {'status': 'skipped (PCA variance issue)'})
+                return self
+            raise
 
         # ===== 关键修复：检查ICA是否成功生成成分 =====
         if not hasattr(self.ica, 'n_components_') or self.ica.n_components_ == 0:
@@ -335,7 +367,7 @@ class MNEPipeline:
         })
         return self
 
-    def apply_standard_pipeline(self, l_freq=1, h_freq=40, ica_method='fastica') -> 'MNEPipeline':
+    def apply_standard_pipeline(self, l_freq=1, h_freq=40, ica_method='infomax') -> 'MNEPipeline':
         """支持参数传递的标准化流程（带详细日志和错误处理）"""
         try:
             logger.info("开始标准预处理流程")
@@ -368,24 +400,20 @@ class MNEPipeline:
                 logger.warning(f"数据量不足({self.raw.n_times}采样点 < 2秒)，跳过ICA处理")
                 skip_ica = True
 
-                # ===== 执行处理链 =====
-                logger.info(">> 步骤1: 应用滤波器")
-                self.apply_filter(l_freq=l_freq, h_freq=h_freq)
-
-                logger.info(">> 步骤2: 设置参考电极")
-                self.set_reference()
-
-                if not skip_ica:
-                    logger.info(f">> 步骤3: 执行ICA ({ica_method})")
-                    self.run_ica(method=ica_method)
-
-                    logger.info(">> 步骤4: 伪迹检测")
-                    self.detect_artifacts()
-                else:
-                    logger.info(">> 跳过步骤3-4 (ICA和伪迹检测)")
-
-                logger.info(">> 步骤5: 应用清理")
-                self.apply_clean()
+            # ===== 执行处理链 =====
+            logger.info(">> 步骤1: 应用滤波器")
+            self.apply_filter(l_freq=l_freq, h_freq=h_freq)
+            logger.info(">> 步骤2: 设置参考电极")
+            self.set_reference()
+            if not skip_ica:
+                logger.info(f">> 步骤3: 执行ICA ({ica_method})")
+                self.run_ica(method=ica_method)
+                logger.info(">> 步骤4: 伪迹检测")
+                self.detect_artifacts()
+            else:
+                logger.info(">> 跳过步骤3-4 (ICA和伪迹检测)")
+            logger.info(">> 步骤5: 应用清理")
+            self.apply_clean()
 
             # ===== 关键修复 3：状态变化验证 =====
             current_state = {

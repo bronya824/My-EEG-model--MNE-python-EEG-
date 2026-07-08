@@ -41,7 +41,7 @@ def test_parse_wechat_data(valid_wechat_data):
 
 
 def test_edf_loading(tmp_path: Path):
-    pytest.importorskip("EDFlib")  # 关键依赖检查
+    pytest.importorskip("pyedflib")  # 关键依赖检查
 
     from mne import export
     edf_path = tmp_path / "test.edf"
@@ -58,7 +58,7 @@ def test_edf_loading(tmp_path: Path):
 
 
 def test_channel_renaming(tmp_path: Path):
-    pytest.importorskip("EDFlib")
+    pytest.importorskip("pyedflib")
 
     from mne import export
     edf_path = tmp_path / "test.edf"
