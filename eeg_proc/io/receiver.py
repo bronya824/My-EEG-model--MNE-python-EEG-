@@ -6,10 +6,12 @@ import mne
 import warnings
 from pydantic import ValidationError
 from ..models.eeg_model import WechatEEGInput
+import logging
 
 class EEGReceiver:
     def __init__(self, max_sampling_rate=2000):
         self.max_sampling_rate = max_sampling_rate
+        self.logger = logging.getLogger('EEGReceiver')
 
     def parse_wechat_input(self, json_data: dict) -> mne.io.BaseRaw:
         """微信数据解析增强版"""
