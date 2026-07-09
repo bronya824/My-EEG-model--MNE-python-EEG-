@@ -1,13 +1,28 @@
-flask>=2.0.0
-mne>=1.0.0
-numpy>=1.21.0
-scipy>=1.7.0
+# Core EEG processing
+mne>=1.6.0
+numpy>=1.24
+scipy>=1.10
+
+# Data validation & models
 pydantic>=2.0
-alibabacloud_oss20190517
-pyedflib
-websockets
-tqdm
-pytest
-python-dotenv
+
+# REST API
+Flask>=3.0.2
 werkzeug>=2.0.0
-psutil
+
+# Alibaba Cloud OSS SDK (runtime import: alibabacloud_oss20190517)
+alibabacloud_oss20190517
+
+# EDF file support
+pyedflib>=0.1.32
+
+# WebSocket real-time streaming
+websockets>=11.0
+
+# Progress bar
+tqdm>=4.66.0
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+flask-testing>=0.8.1
