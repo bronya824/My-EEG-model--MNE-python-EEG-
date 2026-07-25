@@ -4,24 +4,30 @@ import mne
 import logging
 from mne.preprocessing import ICA
 from typing import Optional, Dict, Any
-from .artifact_detection import compute_bad_channels
-from .quality_metrics_v2 import calculate_snr
+from .artifact_detection import compute_bad_channels, classify_ica_components
+from .quality_metrics_v2 import calculate_snr, compute_depression_markers
 import numpy as np
+
 logger = logging.getLogger('eeg_pipeline')
 
 
 class MNEPipeline:
-    """符合MNE标准的预处理流水线（支持方法链调用）"""
+    """符合MNE标准的预处理流水线（抑郁症检测优化版）"""
 
     DEFAULT_PARAMS = {
         'filter': {
-            'l_freq': 1.0,
+            'l_freq': 0.1,
             'h_freq': 40.0,
             'method': 'fir',
-            'l_trans_bandwidth': 0.5,  # 低频过渡带宽(Hz)
-            'h_trans_bandwidth': 0.5,  # 高频过渡带宽(Hz)
+            'l_trans_bandwidth': 0.5,
+            'h_trans_bandwidth': 0.5,
             'phase': 'zero-double',
             'fir_window': 'hann'
+        },
+        'notch': {
+            'freqs': 50,
+            'method': 'fir',
+            'filter_length': '10s'
         },
         'ica': {
             'method': 'infomax',
@@ -31,24 +37,22 @@ class MNEPipeline:
         'artifact': {
             'ecg_threshold': 0.3,
             'eog_threshold': 0.5,
-            'ecg_ch_name': 'ECG',  # 兼容旧版mne
-            'eog_ch_name': 'EOG'  # 新版参数名
+            'ecg_ch_name': 'ECG',
+            'eog_ch_name': 'EOG',
+            'use_spectral_classification': True
         }
     }
 
     def __init__(self, raw: mne.io.BaseRaw):
-        """
-        :param raw: 原始数据对象
-        """
         self.raw = raw.copy()
         self.ica = None
         self.processing_log = []
         self.quality_metrics = {}
+        self.depression_markers = {}
         self._log_step('init', {'input_shape': self.raw.get_data().shape})
         logger.info(f"初始化MNEPipeline: {len(raw.ch_names)}通道, {raw.n_times}采样点")
 
     def _log_step(self, step_name: str, params: dict) -> None:
-        """记录处理步骤和参数"""
         log_entry = {
             'step': step_name,
             'params': params.copy() if params else {},
@@ -56,6 +60,43 @@ class MNEPipeline:
             'data_hash': hash(self.raw.get_data().tobytes())
         }
         self.processing_log.append(log_entry)
+
+    # ========== 修复：自动幅度归一化（正确处理 V/µV 单位） ==========
+    def auto_scale(self, target_mad: float = 50.0, max_scale: float = 1e6) -> 'MNEPipeline':
+        """
+        自动幅度归一化 — 无外部增益参数依赖。
+        MNE raw.get_data() 返回单位为 Volts，需先转为 µV 评估。
+        """
+        data = self.raw.get_data()  # 单位: Volts
+        # 转为 µV 进行稳健统计
+        data_uv = data * 1e6
+        median_uv = float(np.median(data_uv))
+        mad_uv = float(np.median(np.abs(data_uv - median_uv)))
+
+        # 如果已经在合理范围，跳过
+        if 5.0 <= mad_uv <= 200.0:
+            logger.info(f"幅度正常 (MAD={mad_uv:.2f} µV)，跳过auto_scale")
+            self._log_step('auto_scale', {'status': 'skipped', 'original_mad_uv': mad_uv})
+            return self
+
+        scale = target_mad / (mad_uv + 1e-12)
+        scale = float(np.clip(scale, 1.0 / max_scale, max_scale))
+
+        # 直接在 Volts 数据上应用缩放（减去中位数消除DC，再乘scale）
+        self.raw._data = (data - np.median(data)) * scale
+
+        logger.warning(
+            f"auto_scale执行: 原median={np.median(data):.2e} V, "
+            f"MAD={mad_uv:.2e} µV, scale={scale:.2e}, 目标MAD={target_mad:.2f} µV"
+        )
+        self._log_step('auto_scale', {
+            'original_median_v': float(np.median(data)),
+            'original_mad_uv': mad_uv,
+            'scale_factor': scale,
+            'target_mad_uv': target_mad
+        })
+        return self
+    # ========== 修复结束 ==========
 
     def apply_filter(self, l_freq: Optional[float] = None,
                      h_freq: Optional[float] = None, **kwargs) -> 'MNEPipeline':
@@ -65,124 +106,78 @@ class MNEPipeline:
             'l_freq': l_freq if l_freq is not None else params['l_freq'],
             'h_freq': h_freq if h_freq is not None else params['h_freq']
         })
-
-        # 确保过渡带宽参数存在
         params.setdefault('l_trans_bandwidth', self.DEFAULT_PARAMS['filter']['l_trans_bandwidth'])
         params.setdefault('h_trans_bandwidth', self.DEFAULT_PARAMS['filter']['h_trans_bandwidth'])
 
-        # 旧版兼容处理
         if 'fir_design' not in params:
             params['fir_design'] = 'firwin2'
 
-            ## 动态调整滤波器长度（核心修复）
-            #n_samples = self.raw.n_times
-            ## 计算最小滤波器长度（至少3倍周期）
-            #min_length = 0
-            #if l_freq and l_freq > 0:
-            #    min_length = int(3 * self.raw.info['sfreq'] / l_freq)
-            #min_length = max(101, min_length)  # 确保最小长度
-#
-            ## 计算最大滤波器长度（不超过数据长度的1/3）
-            #max_length = min(10000, n_samples // 2)
-            #max_length = min(max_length, int(n_samples * 0.1))  # 新增：限制最大长度 ≤10% 数据时长
-#
-            ## 如果用户没有指定滤波器长度，则使用动态计算的值
-            #if 'filter_length' not in params:
-            #    params['filter_length'] = min_length  # 使用最小长度保证滤波效果
-#
-            ## 确保滤波器长度在合理范围内且为奇数
-            #if isinstance(params['filter_length'], (int, float)):
-            #    filter_length = int(params['filter_length'])
-            #    filter_length = max(min_length, min(filter_length, max_length))
-            #    filter_length = filter_length // 2 * 2 + 1  # 确保是奇数
-            #    params['filter_length'] = filter_length
-
             n_samples = self.raw.n_times
-
-            # 1. 计算最小长度要求
-            min_cycles = 3  # 至少3个周期
+            min_cycles = 3
             min_length_by_freq = 0
 
-            if l_freq and l_freq > 0:
-                min_length_by_freq = int(min_cycles * self.raw.info['sfreq'] / l_freq)
-            elif h_freq and h_freq > 0:
-                min_length_by_freq = int(min_cycles * self.raw.info['sfreq'] / h_freq)
+            if params['l_freq'] and params['l_freq'] > 0:
+                min_length_by_freq = int(min_cycles * self.raw.info['sfreq'] / params['l_freq'])
+            elif params['h_freq'] and params['h_freq'] > 0:
+                min_length_by_freq = int(min_cycles * self.raw.info['sfreq'] / params['h_freq'])
 
-            # 2. 确定FIR滤波器长度
             if 'filter_length' not in params:
-                # 使用频率要求的最小长度，但不超过数据长度的70%
                 filter_length = min(min_length_by_freq, int(n_samples * 0.7)) if min_length_by_freq > 0 else 101
             else:
                 filter_length = params['filter_length']
 
-            # 3. 确保长度合理
             filter_length = max(101, min(filter_length, min(10000, n_samples)))
 
-            # 4. 如果滤波器长度 > 数据长度或数据长度 < 2秒，使用IIR滤波器
             if filter_length > n_samples or n_samples < int(2 * self.raw.info['sfreq']):
-                # 使用IIR滤波器（更适合短数据）
                 logger.warning(f"使用IIR滤波: 数据={n_samples}点 < 滤波器要求={filter_length}点")
                 self.raw.filter(
-                    l_freq=l_freq,
-                    h_freq=h_freq,
+                    l_freq=params['l_freq'],
+                    h_freq=params['h_freq'],
                     method='iir',
                     iir_params=dict(order=4, ftype='butter'),
                     verbose=False
                 )
+                self._log_step('filter', params)
                 return self
 
-            # 5. 确保是奇数（FIR滤波器要求）
             filter_length = filter_length // 2 * 2 + 1
             params['filter_length'] = filter_length
+            logger.info(f"滤波器: 长度={filter_length}点")
 
-            logger.info(
-                f"滤波器: 长度={filter_length}点 (数据={n_samples}点, "
-                f"频率要求={min_length_by_freq}点)"
-            )
-
-            # ===== 安全处理：当滤波器长度 > 数据长度时 =====
             if filter_length > n_samples:
-                # 1. 使用分段滤波（更先进的方法）
                 try:
                     logger.warning(f"使用分段滤波: {filter_length}点 > {n_samples}点")
                     self.raw.filter(
-                        l_freq=l_freq,
-                        h_freq=h_freq,
+                        l_freq=params['l_freq'],
+                        h_freq=params['h_freq'],
                         method='fir',
                         filter_length=filter_length,
                         fir_design='firwin2',
                         phase='zero',
                         fir_window='hann',
-                        pad='reflect_limited',  # 更好的边界处理
+                        pad='reflect_limited',
                         verbose=False
                     )
+                    self._log_step('filter', params)
                     return self
                 except Exception as e:
                     logger.error(f"分段滤波失败: {str(e)}")
+                    filter_length = n_samples if n_samples % 2 == 1 else n_samples - 1
 
-                # 2. 回退方案：使用数据长度
-                filter_length = n_samples if n_samples % 2 == 1 else n_samples - 1
-                logger.warning(f"回退到最小滤波器长度: {filter_length}点")
-
-            # ===== 智能滤波策略选择 =====
-            min_required_samples = int(5 * self.raw.info['sfreq'] / min(l_freq, 1) if l_freq else 1000)
-
+            min_required_samples = int(5 * self.raw.info['sfreq'] / min(params['l_freq'], 1) if params['l_freq'] else 1000)
             if n_samples < min_required_samples:
-                # 使用IIR滤波器（更适合短数据）
                 logger.warning(f"使用IIR滤波: 数据={n_samples}点 < 要求={min_required_samples}点")
                 self.raw.filter(
-                    l_freq=l_freq,
-                    h_freq=h_freq,
+                    l_freq=params['l_freq'],
+                    h_freq=params['h_freq'],
                     method='iir',
                     iir_params=dict(order=4, ftype='butter'),
                     verbose=False
                 )
+                self._log_step('filter', params)
                 return self
 
-        # 记录使用的滤波器参数
         self._log_step('filter', params)
-
-        # 应用滤波器（添加过渡带宽参数）
         self.raw.filter(
             l_freq=params['l_freq'],
             h_freq=params['h_freq'],
@@ -191,31 +186,116 @@ class MNEPipeline:
             fir_window=params['fir_window'],
             fir_design=params['fir_design'],
             filter_length=params['filter_length'],
-            l_trans_bandwidth=params['l_trans_bandwidth'],  # 添加低频过渡带宽
-            h_trans_bandwidth=params['h_trans_bandwidth'],  # 添加高频过渡带宽
+            l_trans_bandwidth=params['l_trans_bandwidth'],
+            h_trans_bandwidth=params['h_trans_bandwidth'],
             verbose=False
         )
         return self
 
-    def set_reference(self, ref_channels: str = 'average') -> 'MNEPipeline':
-        """智能重参考设置（修复应用问题）"""
+    def apply_notch(self, freqs: Optional[float] = None, **kwargs) -> 'MNEPipeline':
+        """工频陷波滤波（限制谐波数量，避免高采样率数据产生过多陷波）"""
+        params = {**self.DEFAULT_PARAMS['notch'], **kwargs}
+        if freqs is not None:
+            params['freqs'] = freqs
+
+        notch_freqs = params['freqs']
+        if isinstance(notch_freqs, (int, float)):
+            notch_freqs = [notch_freqs]
+
+        sfreq = self.raw.info['sfreq']
+
+        harmonics = []
+        max_notch = min(sfreq / 2 - 5, 250)
+        for f in notch_freqs:
+            h = f
+            count = 0
+            while h < max_notch and count < 3:
+                harmonics.append(h)
+                h += f
+                count += 1
+
+        if not harmonics:
+            logger.info("无需陷波（采样率过低或无有效频率）")
+            return self
+
+        logger.info(f"应用陷波滤波: {harmonics} Hz")
         try:
-            # 确保数据已加载
+            self.raw.notch_filter(
+                freqs=harmonics,
+                method=params.get('method', 'fir'),
+                filter_length=params.get('filter_length', '10s'),
+                verbose=False
+            )
+        except Exception as e:
+            logger.warning(f"陷波滤波失败: {e}，跳过")
+            return self
+
+        self._log_step('notch', {'freqs': harmonics, **params})
+        return self
+
+    def detect_bad_channels(self, interpolate: bool = True) -> 'MNEPipeline':
+        """坏道检测与插值（通道数感知）"""
+        bads = compute_bad_channels(self.raw)
+        n_channels = len(self.raw.ch_names)
+
+        if bads:
+            logger.info(f"检测到坏道: {bads}")
+            self.raw.info['bads'] = bads
+
+            if n_channels <= 5:
+                logger.warning(f"低通道模式 ({n_channels}ch): 坏道仅标记不插值: {bads}")
+                self._log_step('bad_channels', {
+                    'detected': bads,
+                    'action': 'marked_only_low_channel',
+                    'n_channels': n_channels
+                })
+                return self
+
+            if interpolate and len(bads) < len(self.raw.ch_names) * 0.2:
+                try:
+                    if self.raw.info.get('dig') is None:
+                        try:
+                            self.raw.set_montage('standard_1020', match_case=False, on_missing='ignore')
+                            logger.info("已自动设置 standard_1020 montage 用于插值")
+                        except Exception:
+                            pass
+
+                    if self.raw.info.get('dig') is not None:
+                        self.raw = self.raw.interpolate_bads(reset_bads=True)
+                        logger.info(f"已插值坏道: {bads}")
+                        self._log_step('bad_channels', {'detected': bads, 'action': 'interpolated'})
+                    else:
+                        logger.warning(f"无电极位置信息，无法插值，仅标记坏道: {bads}")
+                        self._log_step('bad_channels', {'detected': bads, 'action': 'marked_only_no_dig'})
+                except Exception as e:
+                    logger.warning(f"坏道插值失败: {e}，仅标记")
+                    self._log_step('bad_channels', {'detected': bads, 'action': 'marked_only', 'error': str(e)})
+            else:
+                logger.warning(f"坏道过多({len(bads)}), 仅标记不插值")
+                self._log_step('bad_channels', {'detected': bads, 'action': 'marked_only'})
+        else:
+            self._log_step('bad_channels', {'detected': [], 'action': 'none'})
+        return self
+
+    def set_reference(self, ref_channels: str = 'average') -> 'MNEPipeline':
+        """智能重参考设置（通道数感知）"""
+        try:
+            n_channels = len(self.raw.ch_names)
+
+            if n_channels <= 5:
+                logger.info(f"低通道模式 ({n_channels}ch): 跳过平均参考（通道高度相关，会被抵消）")
+                self._log_step('rereference', {'method': 'skipped_low_channel', 'reason': 'channels_too_correlated'})
+                return self
+
             if not self.raw.preload:
                 logger.info("预加载数据以应用参考")
                 self.raw.load_data()
 
             if ref_channels == 'average':
                 logger.info("应用平均参考")
-
-                # 创建数据副本以避免修改原始数据
                 raw_copy = self.raw.copy()
-
-                # 应用平均参考
                 raw_copy.set_eeg_reference(ref_channels='average')
-                raw_copy.apply_proj()  # 显式应用投影
-
-                # 更新原始数据
+                raw_copy.apply_proj()
                 self.raw = raw_copy
                 logger.info("平均参考已应用")
             else:
@@ -230,22 +310,28 @@ class MNEPipeline:
 
     def run_ica(self, n_components: Optional[float] = None,
                 method: Optional[str] = None, **kwargs) -> 'MNEPipeline':
-        """增强版ICA分解（添加空成分检查和低通道数保护）"""
+        """增强版ICA分解（通道数感知）"""
         params = {**self.DEFAULT_PARAMS['ica'], **kwargs}
         params.update({
             'n_components': n_components or params['n_components'],
             'method': method or params['method']
         })
 
-        # 检查最小通道数：ICA 对 < 3 通道无意义
         n_channels = len(self.raw.ch_names)
+
+        if n_channels <= 5:
+            logger.info(f"低通道模式 ({n_channels}ch): 跳过ICA分解")
+            self.ica = None
+            self._log_step('ica', {'status': f'skipped (low_channel_mode: {n_channels})'})
+            return self
+
         if n_channels < 3:
             logger.warning(f"通道数不足({n_channels} < 3)，ICA无意义，跳过")
             self._log_step('ica', {'status': f'skipped (too few channels: {n_channels})'})
             self.ica = None
             return self
 
-        min_samples = int(2 * self.raw.info['sfreq'])  # 至少2秒数据
+        min_samples = int(2 * self.raw.info['sfreq'])
         if self.raw.n_times < min_samples:
             logger.warning(f"数据不足({self.raw.n_times}采样点 < 2秒)，跳过ICA处理")
             self._log_step('ica', {'status': 'skipped (insufficient data)'})
@@ -259,28 +345,14 @@ class MNEPipeline:
         )
 
         try:
-            self.ica.fit(
-                self.raw,
-                reject_by_annotation=True,
-                verbose='warning'
-            )
+            self.ica.fit(self.raw, reject_by_annotation=True, verbose='warning')
         except ImportError as e:
-            # fastica 需要 sklearn，缺失时自动降级为 infomax
             logger.warning(f"ICA方法 '{params['method']}' 不可用: {str(e)}，降级为 'infomax'")
             params['method'] = 'infomax'
-            self.ica = ICA(
-                n_components=params['n_components'],
-                method='infomax',
-                random_state=params['random_state'],
-                max_iter=params.get('max_iter', 500)
-            )
-            self.ica.fit(
-                self.raw,
-                reject_by_annotation=True,
-                verbose='warning'
-            )
+            self.ica = ICA(n_components=params['n_components'], method='infomax',
+                           random_state=params['random_state'], max_iter=params.get('max_iter', 500))
+            self.ica.fit(self.raw, reject_by_annotation=True, verbose='warning')
         except RuntimeError as e:
-            # PCA 方差阈值问题（常见于少通道数据），跳过 ICA
             if 'PCA' in str(e) or 'threshold' in str(e):
                 logger.warning(f"ICA不适合当前数据(PCA问题): {str(e)}，跳过ICA处理")
                 self.ica = None
@@ -288,10 +360,9 @@ class MNEPipeline:
                 return self
             raise
 
-        # ===== 关键修复：检查ICA是否成功生成成分 =====
         if not hasattr(self.ica, 'n_components_') or self.ica.n_components_ == 0:
-            logger.error("ICA拟合失败: 未生成任何独立成分。可能是数据不足或数据质量问题。")
-            self.ica = None  # 标记ICA失效，避免后续操作
+            logger.error("ICA拟合失败: 未生成任何独立成分")
+            self.ica = None
         else:
             logger.info(f"ICA拟合成功，生成{self.ica.n_components_}个成分")
 
@@ -300,47 +371,59 @@ class MNEPipeline:
 
     def detect_artifacts(self, ecg_threshold: Optional[float] = None,
                          eog_threshold: Optional[float] = None, **kwargs) -> 'MNEPipeline':
-        """多模态伪迹检测"""
+        """多模态伪迹检测（通道数感知）"""
         if self.ica is None or (hasattr(self.ica, 'n_components_') and self.ica.n_components_ == 0):
             logger.warning("ICA未初始化或拟合失败，跳过伪迹检测")
             self._log_step('artifact_detect', {'status': 'skipped (no ICA model)'})
             return self
 
-        params = {**self.DEFAULT_PARAMS['artifact'], **kwargs}
+        n_channels = len(self.raw.ch_names)
+        if n_channels <= 5:
+            logger.info(f"低通道模式 ({n_channels}ch): 跳过ICA伪迹检测")
+            self._log_step('artifact_detect', {
+                'status': 'skipped (low_channel_mode)',
+                'n_channels': n_channels
+            })
+            return self
 
-        # ECG检测（多版本兼容）
-        ecg_components = []
+        params = {**self.DEFAULT_PARAMS['artifact'], **kwargs}
+        excluded = set()
+
         if params['ecg_ch_name'] in self.raw.ch_names:
             try:
-                ecg_components, _ = self.ica.find_bads_ecg(
-                    self.raw,
-                    threshold=params['ecg_threshold'],
-                    ch_name=params['ecg_ch_name']
-                )
-            except TypeError:  # 旧版参数名回退
-                ecg_components, _ = self.ica.find_bads_ecg(
-                    self.raw,
-                    threshold=params['ecg_threshold'],
-                    channel=params['ecg_ch_name']
-                )
+                ecg_comp, _ = self.ica.find_bads_ecg(self.raw, threshold=params['ecg_threshold'],
+                                                      ch_name=params['ecg_ch_name'])
+                excluded.update(ecg_comp)
+            except TypeError:
+                ecg_comp, _ = self.ica.find_bads_ecg(self.raw, threshold=params['ecg_threshold'],
+                                                      channel=params['ecg_ch_name'])
+                excluded.update(ecg_comp)
+            except Exception as e:
+                logger.warning(f"ECG检测失败: {e}")
 
-        # EOG检测（同理）
-        eog_components = []
         if params['eog_ch_name'] in self.raw.ch_names:
             try:
-                eog_components, _ = self.ica.find_bads_eog(
-                    self.raw,
-                    threshold=params['eog_threshold'],
-                    ch_name=params['eog_ch_name']
-                )
-            except TypeError:  # 旧版参数名回退
-                eog_components, _ = self.ica.find_bads_eog(
-                    self.raw,
-                    threshold=params['eog_threshold'],
-                    channel=params['eog_ch_name']
-                )
+                eog_comp, _ = self.ica.find_bads_eog(self.raw, threshold=params['eog_threshold'],
+                                                      ch_name=params['eog_ch_name'])
+                excluded.update(eog_comp)
+            except TypeError:
+                eog_comp, _ = self.ica.find_bads_eog(self.raw, threshold=params['eog_threshold'],
+                                                      channel=params['eog_ch_name'])
+                excluded.update(eog_comp)
+            except Exception as e:
+                logger.warning(f"EOG检测失败: {e}")
 
-        self.ica.exclude = list(set(ecg_components + eog_components))
+        if params.get('use_spectral_classification', True):
+            spectral_labels = classify_ica_components(self.ica, self.raw)
+            excluded.update(spectral_labels.get('eog', []))
+            excluded.update(spectral_labels.get('muscle', []))
+            excluded.update(spectral_labels.get('line', []))
+            logger.info(f"频谱分类结果: EOG={spectral_labels['eog']}, "
+                        f"Muscle={spectral_labels['muscle']}, "
+                        f"Line={spectral_labels['line']}, "
+                        f"Brain={spectral_labels['brain']}")
+
+        self.ica.exclude = sorted(list(excluded))
         self._log_step('artifact_detect', {
             'excluded_components': self.ica.exclude,
             'artifact_params': params
@@ -349,107 +432,100 @@ class MNEPipeline:
 
     def apply_clean(self) -> 'MNEPipeline':
         """数据清洗综合处理"""
-        # 应用ICA清洗
         if self.ica and len(self.ica.exclude) > 0:
             self.ica.apply(self.raw)
+            logger.info(f"已剔除ICA成分: {self.ica.exclude}")
 
-        # 注释掉坏道处理（实时处理中保留所有通道）
-        # bad_channels = compute_bad_channels(self.raw)
-        # if bad_channels:
-        #     self.raw.drop_channels(bad_channels)
-
-        # 质量评估
         self._calculate_quality_metrics()
+        self.depression_markers = compute_depression_markers(self.raw)
 
         self._log_step('final_clean', {
             'remaining_channels': self.raw.info['ch_names'],
-            'quality_metrics': self.quality_metrics
+            'quality_metrics': self.quality_metrics,
+            'depression_markers': self.depression_markers
         })
         return self
 
-    def apply_standard_pipeline(self, l_freq=1, h_freq=40, ica_method='infomax') -> 'MNEPipeline':
-        """支持参数传递的标准化流程（带详细日志和错误处理）"""
+    def apply_standard_pipeline(self, l_freq=0.1, h_freq=40, ica_method='infomax',
+                                apply_notch=True, notch_freqs=50) -> 'MNEPipeline':
+        """抑郁症检测标准化流程（通道数感知 + 自动幅度归一化）"""
         try:
-            logger.info("开始标准预处理流程")
+            n_channels = len(self.raw.ch_names)
+            is_low_channel = n_channels <= 5
+            mode_str = "LOW_CHANNEL" if is_low_channel else "STANDARD"
+            logger.info(f"=== 预处理模式: {mode_str} ({n_channels}通道) ===")
 
-            # ===== 关键修复 1：空数据防护 =====
+            logger.info("开始标准预处理流程 (抑郁症检测优化版)")
+
             if self.raw.n_times == 0:
-                error_msg = "输入数据为空 (n_times=0)，无法执行处理流程"
-                logger.critical(error_msg)
-                raise ValueError(error_msg)
+                raise ValueError("输入数据为空 (n_times=0)")
 
-            # ===== 关键修复 2：状态快照增强 =====
             orig_state = {
                 'ch_names': self.raw.ch_names.copy(),
                 'n_times': self.raw.n_times,
                 'sfreq': self.raw.info['sfreq'],
-                'data_hash': hash(self.raw._data.tobytes())  # 增加数据哈希校验
+                'data_hash': hash(self.raw._data.tobytes())
             }
             logger.info(f"原始数据状态: {orig_state['n_times']}采样点, {len(orig_state['ch_names'])}通道")
 
-            # 参数验证（保持原有逻辑）
             if l_freq is not None and h_freq is not None and l_freq >= h_freq:
-                error_msg = f"滤波参数无效: 低通{l_freq}Hz ≥ 高通{h_freq}Hz"
-                logger.error(error_msg)
-                raise ValueError(error_msg)
+                raise ValueError(f"滤波参数无效: 低通{l_freq}Hz >= 高通{h_freq}Hz")
 
-            min_samples_ica = int(self.raw.info['sfreq'] * 2)  # 至少2秒数据
-            skip_ica = False
+            logger.info(">> 步骤0: 自动幅度归一化")
+            self.auto_scale(target_mad=50.0)
 
-            if self.raw.n_times < min_samples_ica:
-                logger.warning(f"数据量不足({self.raw.n_times}采样点 < 2秒)，跳过ICA处理")
-                skip_ica = True
-
-            # ===== 执行处理链 =====
-            logger.info(">> 步骤1: 应用滤波器")
+            logger.info(">> 步骤1: 应用带通滤波器")
             self.apply_filter(l_freq=l_freq, h_freq=h_freq)
-            logger.info(">> 步骤2: 设置参考电极")
+
+            if apply_notch:
+                logger.info(">> 步骤2: 应用陷波滤波器")
+                self.apply_notch(freqs=notch_freqs)
+            else:
+                logger.info(">> 跳过陷波 (用户指定)")
+
+            logger.info(">> 步骤3: 检测并处理坏道")
+            self.detect_bad_channels(interpolate=True)
+
+            logger.info(">> 步骤4: 设置参考电极")
             self.set_reference()
-            if not skip_ica:
-                logger.info(f">> 步骤3: 执行ICA ({ica_method})")
+
+            min_samples_ica = int(self.raw.info['sfreq'] * 2)
+            if is_low_channel:
+                logger.info(">> 低通道模式: 跳过步骤5-6 (ICA和伪迹检测)")
+                self.ica = None
+                self._log_step('ica', {'status': 'skipped (low_channel_mode)'})
+                self._log_step('artifact_detect', {'status': 'skipped (low_channel_mode)'})
+            elif self.raw.n_times >= min_samples_ica:
+                logger.info(f">> 步骤5: 执行ICA ({ica_method})")
                 self.run_ica(method=ica_method)
-                logger.info(">> 步骤4: 伪迹检测")
+                logger.info(">> 步骤6: 伪迹检测")
                 self.detect_artifacts()
             else:
-                logger.info(">> 跳过步骤3-4 (ICA和伪迹检测)")
-            logger.info(">> 步骤5: 应用清理")
+                logger.info(">> 跳过步骤5-6 (ICA和伪迹检测，数据不足)")
+
+            logger.info(">> 步骤7: 应用清理")
             self.apply_clean()
 
-            # ===== 关键修复 3：状态变化验证 =====
             current_state = {
                 'n_times': self.raw.n_times,
                 'n_channels': len(self.raw.ch_names)
             }
             if current_state['n_times'] == 0:
-                logger.error(f"处理后数据为空! 原始数据: {orig_state['n_times']}采样点")
                 raise RuntimeError("处理流程导致数据丢失")
 
             logger.info(
-                f"预处理完成: 通道 {len(orig_state['ch_names'])}→{current_state['n_channels']}, "
-                f"采样点 {orig_state['n_times']}→{current_state['n_times']}, "
-                f"采样率 {orig_state['sfreq']}Hz"
+                f"预处理完成: 通道 {len(orig_state['ch_names'])}->{current_state['n_channels']}, "
+                f"采样点 {orig_state['n_times']}->{current_state['n_times']}"
             )
             return self
 
         except Exception as e:
-            # ===== 增强错误诊断 =====
             current_step = self.processing_log[-1]['step'] if self.processing_log else "未知"
-            error_details = {
-                'step': current_step,
-                'error_type': type(e).__name__,
-                'error_msg': str(e),
-                'data_state': f"{len(self.raw.ch_names)}通道/{self.raw.n_times}采样点"
-            }
-            logger.critical(f"预处理失败: {error_details}")
-
-            # 记录关键参数
-            logger.debug(f"滤波器参数: l_freq={l_freq}, h_freq={h_freq}")
-            logger.debug(f"ICA方法: {ica_method}")
-
+            logger.critical(f"预处理失败于[{current_step}]: {str(e)}")
             raise RuntimeError(f"预处理失败于[{current_step}]: {str(e)}") from e
 
     def _calculate_quality_metrics(self) -> None:
-        """综合质量评估"""
+        """综合质量评估（含抑郁症标记）"""
         self.quality_metrics = {
             'snr_db': calculate_snr(self.raw),
             'bad_channels_ratio': len(compute_bad_channels(self.raw)) / len(self.raw.ch_names),
@@ -459,12 +535,10 @@ class MNEPipeline:
         }
 
     def get_processed_data(self) -> mne.io.BaseRaw:
-        """获取处理后的数据副本"""
         return self.raw.copy()
 
     def get_processing_report(self) -> Dict[str, Any]:
-        """生成处理报告，确保所有类型可序列化"""
-        # 转换numpy类型为Python原生类型
+        """生成处理报告"""
         metrics = {
             'snr_db': float(self.quality_metrics['snr_db']),
             'bad_channels_ratio': float(self.quality_metrics['bad_channels_ratio']),
@@ -473,49 +547,34 @@ class MNEPipeline:
             'effective_sfreq': float(self.quality_metrics['effective_sfreq'])
         }
 
-        # 转换日志中的numpy类型
+        depression = {}
+        for k, v in self.depression_markers.items():
+            if isinstance(v, (np.integer, np.floating)):
+                depression[k] = float(v)
+            else:
+                depression[k] = v
+
         serializable_log = []
         for entry in self.processing_log:
-            # 深度复制并转换
             entry_copy = entry.copy()
             if 'params' in entry_copy:
                 for key, value in entry_copy['params'].items():
-                    # 修复1: 使用安全的NumPy类型检查方法
                     try:
-                        # 检查是否是NumPy标量类型
                         if hasattr(value, 'item') and callable(getattr(value, 'item', None)):
-                            # 处理 NumPy 标量类型
                             entry_copy['params'][key] = value.item()
-                        # 修复2: 使用NumPy的issubdtype替代直接类型检查
                         elif isinstance(value, np.generic):
                             if np.issubdtype(value.dtype, np.integer):
                                 entry_copy['params'][key] = int(value)
                             elif np.issubdtype(value.dtype, np.floating):
                                 entry_copy['params'][key] = float(value)
-                        # 处理标准Python类型
-                        elif isinstance(value, (int, float)):
-                            # 原生类型不需要转换
-                            pass
-                        else:
-                            try:
-                                # 尝试直接转换为 Python 原生类型
-                                # 改进浮点数检测逻辑
-                                if isinstance(value, str) and '.' in value:
-                                    entry_copy['params'][key] = float(value)
-                                else:
-                                    entry_copy['params'][key] = int(value)
-                            except (ValueError, TypeError):
-                                # 无法转换则保留原值（可能是字符串或其他可序列化类型）
-                                pass
-                    except Exception as e:
-                        # 添加错误日志记录以便调试
-                        logger.warning(f"类型转换错误: 键={key}, 值={value}(类型:{type(value)}), 错误: {str(e)}")
-                        # 保持原值，确保函数继续执行
+                    except Exception:
+                        pass
             serializable_log.append(entry_copy)
 
         return {
             'log': serializable_log,
             'metrics': metrics,
+            'depression_markers': depression,
             'final_info': {
                 'n_channels': int(len(self.raw.ch_names)),
                 'sfreq': float(self.raw.info['sfreq']),
