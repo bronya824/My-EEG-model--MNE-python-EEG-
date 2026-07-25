@@ -67,7 +67,6 @@ mne.set_config('MNE_LOGGING_LEVEL', 'INFO')
 
 
 def generate_sample_data():
-    """生成测试数据并输出详细日志"""
     data_dir = Path("./data/raw")
     data_dir.mkdir(parents=True, exist_ok=True)
     logger.info(f"生成测试数据到: {data_dir.absolute()}")
@@ -77,13 +76,16 @@ def generate_sample_data():
         data = np.random.randn(32, 1000)
         info = mne.create_info(32, sfreq=1000, ch_types='eeg')
         raw = mne.io.RawArray(data, info)
+
+        # FIF 保存（正确）
         file_path = data_dir / fif_filename
         raw.save(file_path, overwrite=True)
         logger.info(f"创建FIF测试文件: {file_path.name} ({file_path.stat().st_size / 1024:.1f} KB)")
 
+        # EDF 保存（修复后）
         edf_filename = f"sub-{i:02d}_task-test_eeg.edf"
         file_path = data_dir / edf_filename
-        raw.save(file_path, overwrite=True, fmt='edf')
+        mne.export.export_raw(str(file_path), raw, fmt='edf', overwrite=True)
         logger.info(f"创建EDF测试文件: {file_path.name} ({file_path.stat().st_size / 1024:.1f} KB)")
 
     logger.info(f"测试数据生成完成，共创建 {3 * 2} 个文件")
