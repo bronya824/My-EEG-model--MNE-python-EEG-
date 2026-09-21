@@ -3,7 +3,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue)](https://www.python.org/)
 [![MNE](https://img.shields.io/badge/MNE-%3E%3D1.6.0-green)](https://mne.tools/)
 [![Flask](https://img.shields.io/badge/Flask-3.0%2B-lightgrey)](https://flask.palletsprojects.com/)
-[![License](https://img.shields.io/badge/License-BSD--3--Clause-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/Apache-2.0-blue.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-50%20passed-brightgreen)](.)
 
 基于 MNE-Python 的**脑电图（EEG）高级预处理流水线**，面向抑郁症研究，支持多源数据输入、自动化伪迹去除、阿里云 OSS 集成与实时流处理。
